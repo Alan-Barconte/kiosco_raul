@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiosco Raúl</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f5f7;
+            color: #222;
+            padding-bottom: 85px;
+        }
+
+        header {
+            background: white;
+            padding: 18px 20px;
+            border-bottom: 1px solid #ddd;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        header p {
+            margin: 5px 0 0;
+            color: #777;
+            font-size: 14px;
+        }
+
+        main {
+            max-width: 700px;
+            margin: auto;
+            padding: 16px;
+        }
+
+        .seccion { display: none; }
+        .seccion.activa { display: block; }
+
+        .tarjeta {
+            background: white;
+            padding: 18px;
+            margin-bottom: 15px;
+            border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 20px;
+        }
+
+        .resumen-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .resumen-card {
+            background: white;
+            padding: 18px 14px;
+            border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
+        }
+
+        .resumen-card.grande {
+            grid-column: 1 / -1;
+        }
+
+        .resumen-card span {
+            color: #777;
+            font-size: 13px;
+        }
+
+        .resumen-card strong {
+            display: block;
+            margin-top: 8px;
+            font-size: 23px;
+        }
+
+        label {
+            display: block;
+            margin: 15px 0 6px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 16px;
+            font-family: inherit;
+            background: white;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 75px;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .boton-principal {
+            width: 100%;
+            margin-top: 18px;
+            background: #198754;
+            color: white;
+            font-weight: bold;
+        }
+
+        .boton-descargar {
+            width: 100%;
+            margin-top: 10px;
+            background: #0d6efd;
+            color: white;
+        }
+
+        .boton-eliminar {
+            background: #f1f1f1;
+            padding: 9px;
+        }
+
+        .boton-pagado {
+            background: #198754;
+            color: white;
+            padding: 9px 12px;
+        }
+
+        .total-venta {
+            font-size: 25px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        .lista-item {
+            background: white;
+            padding: 16px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.05);
+        }
+
+        .lista-item-superior {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .lista-item h3 {
+            margin: 0 0 5px;
+            font-size: 17px;
+        }
+
+        .lista-item p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .monto {
+            font-size: 19px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .acciones {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .estado {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 7px;
+        }
+
+        .pendiente {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .pagado {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .alerta {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 15px;
+        }
+
+        .vacio {
+            text-align: center;
+            color: #888;
+            padding: 25px;
+        }
+
+        nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 72px;
+            background: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-around;
+            z-index: 100;
+        }
+
+        nav button {
+            flex: 1;
+            background: transparent;
+            color: #777;
+            border-radius: 0;
+            font-size: 13px;
+        }
+
+        nav button.activo {
+            color: #198754;
+            font-weight: bold;
+        }
+
+        nav .icono {
+            display: block;
+            font-size: 21px;
+            margin-bottom: 3px;
+        }
+
+        @media (min-width: 600px) {
+            body { padding-top: 15px; }
+            header { border-radius: 14px; max-width: 700px; margin: auto; }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>🏪 Kiosco Raúl</h1>
+    <p id="fechaActual"></p>
+</header>
+
+<main>
+
+    <!-- INICIO -->
+    <section id="inicio" class="seccion activa">
+        <h2>Resumen</h2>
+
+        <div class="resumen-grid">
+            <div class="resumen-card">
+                <span>Vendido hoy</span>
+                <strong id="vendidoHoy">$0</strong>
+            </div>
+
+            <div class="resumen-card">
+                <span>Ventas registradas</span>
+                <strong id="cantidadVentasInicio">0</strong>
+            </div>
+
+            <div class="resumen-card grande">
+                <span>Total pendiente de pago</span>
+                <strong id="totalPendiente">$0</strong>
+            </div>
+        </div>
+
+        <div id="avisoProximoPago"></div>
+
+        <h2 style="margin-top: 25px;">Próximos pagos</h2>
+        <div id="proximosPagosInicio"></div>
+    </section>
+
+
+    <!-- VENTAS -->
+    <section id="ventas" class="seccion">
+
+        <div class="tarjeta">
+            <h2>➕ Nueva venta</h2>
+
+            <label>Producto</label>
+            <input id="producto" type="text"
+                   placeholder="Ej: Coca Cola">
+
+            <label>Precio</label>
+            <input id="precio" type="number"
+                   min="0" placeholder="Ej: 2500">
+
+            <label>Cantidad</label>
+            <input id="cantidad" type="number"
+                   min="1" value="1">
+
+            <div class="total-venta">
+                Total: $<span id="totalVenta">0</span>
+            </div>
+
+            <button class="boton-principal"
+                    onclick="guardarVenta()">
+                Guardar venta
+            </button>
+        </div>
+
+        <h2>Historial de ventas</h2>
+        <div id="listaVentas"></div>
+
+        <button class="boton-descargar"
+                onclick="descargarVentas()">
+            ⬇️ Descargar ventas para Excel
+        </button>
+    </section>
+
+
+    <!-- PAGOS -->
+    <section id="pagos" class="seccion">
+
+        <div class="tarjeta">
+            <h2>📅 Agregar próximo pago</h2>
+
+            <label>Fecha de pago</label>
+            <input id="fechaPago" type="date">
+
+            <label>Proveedor / Descripción</label>
+            <input id="proveedor" type="text"
+                   placeholder="Ej: Distribuidora Coca-Cola">
+
+            <label>Monto a pagar</label>
+            <input id="montoPago" type="number"
+                   min="0" placeholder="Ej: 120000">
+
+            <label>Nota (opcional)</label>
+            <textarea id="notaPago"
+                      placeholder="Ej: Pedido de bebidas"></textarea>
+
+            <button class="boton-principal"
+                    onclick="guardarPago()">
+                Guardar próximo pago
+            </button>
+        </div>
+
+        <h2>Próximos pagos</h2>
+        <div id="listaPagos"></div>
+    </section>
+
+</main>
+
+
+<nav>
+    <button class="activo" onclick="cambiarSeccion('inicio', this)">
+        <span class="icono">🏠</span>
+        Inicio
+    </button>
+
+    <button onclick="cambiarSeccion('ventas', this)">
+        <span class="icono">🧾</span>
+        Ventas
+    </button>
+
+    <button onclick="cambiarSeccion('pagos', this)">
+        <span class="icono">📅</span>
+        Pagos
+    </button>
+</nav>
+
+
+<script>
+    let ventas =
+        JSON.parse(localStorage.getItem("ventasKiosco")) || [];
+
+    let pagos =
+        JSON.parse(localStorage.getItem("pagosKiosco")) || [];
+
+
+    const formatoDinero = numero =>
+        "$" + Number(numero).toLocaleString("es-AR");
+
+
+    function fechaLocalISO() {
+        const hoy = new Date();
+        const año = hoy.getFullYear();
+        const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+        const dia = String(hoy.getDate()).padStart(2, "0");
+
+        return `${año}-${mes}-${dia}`;
+    }
+
+
+    document.getElementById("fechaActual").textContent =
+        new Date().toLocaleDateString("es-AR", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+        });
+
+
+    document.getElementById("fechaPago").value = fechaLocalISO();
+
+
+    function cambiarSeccion(id, boton) {
+        document.querySelectorAll(".seccion")
+            .forEach(seccion => seccion.classList.remove("activa"));
+
+        document.getElementById(id).classList.add("activa");
+
+        document.querySelectorAll("nav button")
+            .forEach(btn => btn.classList.remove("activo"));
+
+        boton.classList.add("activo");
+
+        window.scrollTo(0, 0);
+    }
+
+
+    // =========================
+    // VENTAS
+    // =========================
+
+    const producto = document.getElementById("producto");
+    const precio = document.getElementById("precio");
+    const cantidad = document.getElementById("cantidad");
+
+    precio.addEventListener("input", calcularTotal);
+    cantidad.addEventListener("input", calcularTotal);
+
+
+    function calcularTotal() {
+        const total =
+            (Number(precio.value) || 0) *
+            (Number(cantidad.value) || 0);
+
+        document.getElementById("totalVenta").textContent =
+            total.toLocaleString("es-AR");
+    }
+
+
+    function guardarVenta() {
+        const nombre = producto.value.trim();
+        const precioValor = Number(precio.value);
+        const cantidadValor = Number(cantidad.value);
+
+        if (!nombre || precioValor <= 0 || cantidadValor <= 0) {
+            alert("Completá correctamente los datos de la venta.");
+            return;
+        }
+
+        ventas.push({
+            id: Date.now(),
+            fecha: new Date().toLocaleString("es-AR"),
+            fechaISO: fechaLocalISO(),
+            producto: nombre,
+            precio: precioValor,
+            cantidad: cantidadValor,
+            total: precioValor * cantidadValor
+        });
+
+        localStorage.setItem("ventasKiosco", JSON.stringify(ventas));
+
+        producto.value = "";
+        precio.value = "";
+        cantidad.value = 1;
+
+        calcularTotal();
+        actualizarTodo();
+    }
+
+
+    function eliminarVenta(id) {
+        if (!confirm("¿Eliminar esta venta?")) return;
+
+        ventas = ventas.filter(venta => venta.id !== id);
+
+        localStorage.setItem("ventasKiosco", JSON.stringify(ventas));
+        actualizarTodo();
+    }
+
+
+    function mostrarVentas() {
+        const contenedor = document.getElementById("listaVentas");
+
+        if (ventas.length === 0) {
+            contenedor.innerHTML =
+                '<div class="vacio">No hay ventas registradas.</div>';
+            return;
+        }
+
+        contenedor.innerHTML = [...ventas]
+            .reverse()
+            .map(venta => `
+                <div class="lista-item">
+                    <div class="lista-item-superior">
+                        <div>
+                            <h3>${venta.producto}</h3>
+                            <p>${venta.fecha}</p>
+                            <p>
+                                ${venta.cantidad} ×
+                                ${formatoDinero(venta.precio)}
+                            </p>
+                        </div>
+
+                        <div class="monto">
+                            ${formatoDinero(venta.total)}
+                        </div>
+                    </div>
+
+                    <div class="acciones">
+                        <button class="boton-eliminar"
+                                onclick="eliminarVenta(${venta.id})">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                </div>
+            `).join("");
+    }
+
+
+    // =========================
+    // PAGOS
+    // =========================
+
+    function guardarPago() {
+        const fecha = document.getElementById("fechaPago").value;
+        const proveedor = document.getElementById("proveedor").value.trim();
+        const monto = Number(document.getElementById("montoPago").value);
+        const nota = document.getElementById("notaPago").value.trim();
+
+        if (!fecha || !proveedor || monto <= 0) {
+            alert("Completá la fecha, el proveedor y el monto.");
+            return;
+        }
+
+        pagos.push({
+            id: Date.now(),
+            fecha,
+            proveedor,
+            monto,
+            nota,
+            estado: "Pendiente"
+        });
+
+        localStorage.setItem("pagosKiosco", JSON.stringify(pagos));
+
+        document.getElementById("proveedor").value = "";
+        document.getElementById("montoPago").value = "";
+        document.getElementById("notaPago").value = "";
+
+        actualizarTodo();
+    }
+
+
+    function marcarPagado(id) {
+        const pago = pagos.find(pago => pago.id === id);
+
+        if (pago) {
+            pago.estado =
+                pago.estado === "Pendiente" ? "Pagado" : "Pendiente";
+        }
+
+        localStorage.setItem("pagosKiosco", JSON.stringify(pagos));
+        actualizarTodo();
+    }
+
+
+    function eliminarPago(id) {
+        if (!confirm("¿Eliminar este pago?")) return;
+
+        pagos = pagos.filter(pago => pago.id !== id);
+
+        localStorage.setItem("pagosKiosco", JSON.stringify(pagos));
+        actualizarTodo();
+    }
+
+
+    function mostrarPagos() {
+        const contenedor = document.getElementById("listaPagos");
+
+        const ordenados = [...pagos].sort(
+            (a, b) => new Date(a.fecha) - new Date(b.fecha)
+        );
+
+        if (ordenados.length === 0) {
+            contenedor.innerHTML =
+                '<div class="vacio">No hay pagos registrados.</div>';
+            return;
+        }
+
+        contenedor.innerHTML = ordenados.map(pago => `
+            <div class="lista-item">
+                <div class="lista-item-superior">
+                    <div>
+                        <h3>${pago.proveedor}</h3>
+
+                        <p>
+                            📅 ${formatearFecha(pago.fecha)}
+                        </p>
+
+                        ${pago.nota
+                            ? `<p>${pago.nota}</p>`
+                            : ""
+                        }
+
+                        <span class="estado ${pago.estado.toLowerCase()}">
+                            ${pago.estado}
+                        </span>
+                    </div>
+
+                    <div class="monto">
+                        ${formatoDinero(pago.monto)}
+                    </div>
+                </div>
+
+                <div class="acciones">
+                    <button class="boton-pagado"
+                            onclick="marcarPagado(${pago.id})">
+                        ${pago.estado === "Pendiente"
+                            ? "✓ Marcar pagado"
+                            : "↩ Volver a pendiente"
+                        }
+                    </button>
+
+                    <button class="boton-eliminar"
+                            onclick="eliminarPago(${pago.id})">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+        `).join("");
+    }
+
+
+    // =========================
+    // INICIO
+    // =========================
+
+    function mostrarInicio() {
+        const hoy = fechaLocalISO();
+
+        const vendidoHoy = ventas
+            .filter(venta => venta.fechaISO === hoy)
+            .reduce((suma, venta) => suma + venta.total, 0);
+
+        const pendientes = pagos.filter(
+            pago => pago.estado === "Pendiente"
+        );
+
+        const totalPendiente = pendientes.reduce(
+            (suma, pago) => suma + pago.monto, 0
+        );
+
+        document.getElementById("vendidoHoy").textContent =
+            formatoDinero(vendidoHoy);
+
+        document.getElementById("cantidadVentasInicio").textContent =
+            ventas.length;
+
+        document.getElementById("totalPendiente").textContent =
+            formatoDinero(totalPendiente);
+
+
+        const proximos = [...pendientes]
+            .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+        const aviso = document.getElementById("avisoProximoPago");
+
+        if (proximos.length > 0) {
+            const proximo = proximos[0];
+
+            aviso.innerHTML = `
+                <div class="alerta">
+                    <strong>Próximo pago</strong><br><br>
+                    ${proximo.proveedor}<br>
+                    ${formatearFecha(proximo.fecha)} —
+                    <strong>${formatoDinero(proximo.monto)}</strong>
+                </div>
+            `;
+        } else {
+            aviso.innerHTML = "";
+        }
+
+
+        const contenedor =
+            document.getElementById("proximosPagosInicio");
+
+        if (proximos.length === 0) {
+            contenedor.innerHTML =
+                '<div class="vacio">No hay pagos pendientes.</div>';
+            return;
+        }
+
+        contenedor.innerHTML = proximos.slice(0, 3).map(pago => `
+            <div class="lista-item">
+                <div class="lista-item-superior">
+                    <div>
+                        <h3>${pago.proveedor}</h3>
+                        <p>📅 ${formatearFecha(pago.fecha)}</p>
+                    </div>
+
+                    <div class="monto">
+                        ${formatoDinero(pago.monto)}
+                    </div>
+                </div>
+            </div>
+        `).join("");
+    }
+
+
+    function formatearFecha(fecha) {
+        const [año, mes, dia] = fecha.split("-");
+
+        return new Date(año, mes - 1, dia)
+            .toLocaleDateString("es-AR");
+    }
+
+
+    // =========================
+    // DESCARGAR
+    // =========================
+
+    function descargarVentas() {
+        if (ventas.length === 0) {
+            alert("No hay ventas para descargar.");
+            return;
+        }
+
+        let csv =
+            "\uFEFFFecha;Producto;Precio;Cantidad;Total\n";
+
+        ventas.forEach(venta => {
+            csv +=
+                `"${venta.fecha}";` +
+                `"${venta.producto}";` +
+                `${venta.precio};` +
+                `${venta.cantidad};` +
+                `${venta.total}\n`;
+        });
+
+        const blob = new Blob(
+            [csv],
+            { type: "text/csv;charset=utf-8;" }
+        );
+
+        const enlace = document.createElement("a");
+        enlace.href = URL.createObjectURL(blob);
+        enlace.download = "ventas_kiosco.csv";
+        enlace.click();
+
+        URL.revokeObjectURL(enlace.href);
+    }
+
+
+    function actualizarTodo() {
+        mostrarVentas();
+        mostrarPagos();
+        mostrarInicio();
+    }
+
+
+    actualizarTodo();
+</script>
+
+</body>
+</html>
