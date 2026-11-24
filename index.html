@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kiosco Raúl</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
     <style>
         * { box-sizing: border-box; }
@@ -34,6 +35,12 @@
             margin: 5px 0 0;
             color: #777;
             font-size: 14px;
+        }
+
+        .estado-sync {
+            font-size: 12px;
+            color: #555;
+            margin-top: 6px;
         }
 
         main {
@@ -124,11 +131,20 @@
             font-weight: bold;
         }
 
+        .boton-secundario {
+            width: 100%;
+            margin-top: 10px;
+            background: #dc3545;
+            color: white;
+            font-weight: bold;
+        }
+
         .boton-descargar {
             width: 100%;
             margin-top: 10px;
             background: #0d6efd;
             color: white;
+            font-weight: bold;
         }
 
         .boton-eliminar {
@@ -191,11 +207,17 @@
             border-radius: 20px;
             font-size: 12px;
             margin-top: 7px;
+            font-weight: bold;
         }
 
         .pendiente {
             background: #fff3cd;
             color: #856404;
+        }
+
+        .vencido {
+            background: #f8d7da;
+            color: #842029;
         }
 
         .pagado {
@@ -208,6 +230,34 @@
             padding: 15px;
             border-radius: 12px;
             margin-top: 15px;
+        }
+
+        .alerta-caja {
+            background: #e7f1ff;
+            border-left: 4px solid #0d6efd;
+            padding: 14px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .filtros {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .filtros button {
+            flex: 1;
+            padding: 10px;
+            font-size: 13px;
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .filtros button.activo-filtro {
+            background: #222;
+            color: white;
+            font-weight: bold;
         }
 
         .vacio {
@@ -260,23 +310,26 @@
 <header>
     <h1>🏪 Kiosco Raúl</h1>
     <p id="fechaActual"></p>
+    <div class="estado-sync" id="estadoSync">Conectando con Google Sheets...</div>
 </header>
 
 <main>
 
     <!-- INICIO -->
     <section id="inicio" class="seccion activa">
-        <h2>Resumen</h2>
+        <div id="panelCaja"></div>
+
+        <h2>Resumen de la caja actual</h2>
 
         <div class="resumen-grid">
             <div class="resumen-card">
-                <span>Vendido hoy</span>
-                <strong id="vendidoHoy">$0</strong>
+                <span>Vendido en caja actual</span>
+                <strong id="vendidoCajaActual">$0</strong>
             </div>
 
             <div class="resumen-card">
-                <span>Ventas registradas</span>
-                <strong id="cantidadVentasInicio">0</strong>
+                <span>Ventas en caja actual</span>
+                <strong id="cantidadVentasCaja">0</strong>
             </div>
 
             <div class="resumen-card grande">
@@ -289,6 +342,9 @@
 
         <h2 style="margin-top: 25px;">Próximos pagos</h2>
         <div id="proximosPagosInicio"></div>
+
+        <h2 style="margin-top: 25px;">Historial de cajas</h2>
+        <div id="historialCajas"></div>
     </section>
 
 
@@ -298,17 +354,18 @@
         <div class="tarjeta">
             <h2>➕ Nueva venta</h2>
 
-            <label>Producto</label>
-            <input id="producto" type="text"
+            <label>Producto (máx. 40 caracteres)</label>
+            <input id="producto" type="text" maxlength="40"
                    placeholder="Ej: Coca Cola">
 
-            <label>Precio</label>
-            <input id="precio" type="number"
-                   min="0" placeholder="Ej: 2500">
+            <label>Precio (máx. 7 dígitos)</label>
+            <input id="precio" type="number" min="1"
+                   oninput="limitarDigitos(this, 7)"
+                   placeholder="Ej: 2500">
 
-            <label>Cantidad</label>
-            <input id="cantidad" type="number"
-                   min="1" value="1">
+            <label>Cantidad (máx. 4 dígitos)</label>
+            <input id="cantidad" type="number" min="1" value="1"
+                   oninput="limitarDigitos(this, 4)">
 
             <div class="total-venta">
                 Total: $<span id="totalVenta">0</span>
@@ -320,12 +377,12 @@
             </button>
         </div>
 
-        <h2>Historial de ventas</h2>
+        <h2>Ventas de la caja actual</h2>
         <div id="listaVentas"></div>
 
         <button class="boton-descargar"
-                onclick="descargarVentas()">
-            ⬇️ Descargar ventas para Excel
+                onclick="descargarExcel()">
+            ⬇️ Descargar planilla completa (.xlsx)
         </button>
     </section>
 
@@ -339,16 +396,17 @@
             <label>Fecha de pago</label>
             <input id="fechaPago" type="date">
 
-            <label>Proveedor / Descripción</label>
-            <input id="proveedor" type="text"
+            <label>Proveedor / Descripción (máx. 50 caracteres)</label>
+            <input id="proveedor" type="text" maxlength="50"
                    placeholder="Ej: Distribuidora Coca-Cola">
 
-            <label>Monto a pagar</label>
-            <input id="montoPago" type="number"
-                   min="0" placeholder="Ej: 120000">
+            <label>Monto a pagar (máx. 8 dígitos)</label>
+            <input id="montoPago" type="number" min="1"
+                   oninput="limitarDigitos(this, 8)"
+                   placeholder="Ej: 120000">
 
-            <label>Nota (opcional)</label>
-            <textarea id="notaPago"
+            <label>Nota (opcional, máx. 120 caracteres)</label>
+            <textarea id="notaPago" maxlength="120"
                       placeholder="Ej: Pedido de bebidas"></textarea>
 
             <button class="boton-principal"
@@ -357,7 +415,17 @@
             </button>
         </div>
 
-        <h2>Próximos pagos</h2>
+        <h2>Pagos registrados</h2>
+
+        <div class="filtros">
+            <button id="filtro-todos" class="activo-filtro"
+                    onclick="setFiltroPago('todos', this)">Todos</button>
+            <button id="filtro-pendientes"
+                    onclick="setFiltroPago('pendientes', this)">Pendientes / Vencidos</button>
+            <button id="filtro-pagados"
+                    onclick="setFiltroPago('pagados', this)">Pagados</button>
+        </div>
+
         <div id="listaPagos"></div>
     </section>
 
@@ -383,26 +451,32 @@
 
 
 <script>
-    let ventas =
-        JSON.parse(localStorage.getItem("ventasKiosco")) || [];
+    const APPS_SCRIPT_URL = "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT";
 
-    let pagos =
-        JSON.parse(localStorage.getItem("pagosKiosco")) || [];
-
+    let cajas = JSON.parse(localStorage.getItem("cajasKiosco")) || [];
+    let ventas = JSON.parse(localStorage.getItem("ventasKiosco")) || [];
+    let pagos = JSON.parse(localStorage.getItem("pagosKiosco")) || [];
+    let filtroPagoActual = "todos";
 
     const formatoDinero = numero =>
-        "$" + Number(numero).toLocaleString("es-AR");
+        "$" + Number(numero || 0).toLocaleString("es-AR");
 
+    function limitarDigitos(input, maxDigitos) {
+        let limpio = input.value.replace(/\D/g, "");
+        if (limpio.length > maxDigitos) {
+            limpio = limpio.slice(0, maxDigitos);
+        }
+        input.value = limpio;
+        calcularTotal();
+    }
 
     function fechaLocalISO() {
         const hoy = new Date();
         const año = hoy.getFullYear();
         const mes = String(hoy.getMonth() + 1).padStart(2, "0");
         const dia = String(hoy.getDate()).padStart(2, "0");
-
         return `${año}-${mes}-${dia}`;
     }
-
 
     document.getElementById("fechaActual").textContent =
         new Date().toLocaleDateString("es-AR", {
@@ -412,24 +486,151 @@
             year: "numeric"
         });
 
-
     document.getElementById("fechaPago").value = fechaLocalISO();
 
+    function guardarCacheLocal() {
+        localStorage.setItem("cajasKiosco", JSON.stringify(cajas));
+        localStorage.setItem("ventasKiosco", JSON.stringify(ventas));
+        localStorage.setItem("pagosKiosco", JSON.stringify(pagos));
+    }
+
+    async function enviarASheets(payload) {
+        guardarCacheLocal();
+        if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("PEGA_AQUI")) {
+            document.getElementById("estadoSync").textContent =
+                "⚠️ Modo local (configurá la URL de Apps Script)";
+            return;
+        }
+
+        const syncEl = document.getElementById("estadoSync");
+        syncEl.textContent = "⏳ Guardando en Google Sheets...";
+
+        try {
+            await fetch(APPS_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            });
+            syncEl.textContent = "✅ Sincronizado con Google Sheets";
+        } catch (err) {
+            syncEl.textContent = "⚠️ Sin conexión: guardado en dispositivo";
+        }
+    }
+
+    async function cargarDesdeSheets() {
+        if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("PEGA_AQUI")) {
+            document.getElementById("estadoSync").textContent =
+                "⚠️ Modo local (configurá la URL de Apps Script)";
+            actualizarTodo();
+            return;
+        }
+
+        const syncEl = document.getElementById("estadoSync");
+        try {
+            const resp = await fetch(APPS_SCRIPT_URL);
+            const data = await resp.json();
+            if (data.ok) {
+                cajas = (data.cajas || []).map(c => ({
+                    ...c,
+                    montoInicial: Number(c.montoInicial) || 0,
+                    totalVendido: Number(c.totalVendido) || 0
+                }));
+                ventas = (data.ventas || []).map(v => ({
+                    ...v,
+                    precio: Number(v.precio) || 0,
+                    cantidad: Number(v.cantidad) || 0,
+                    total: Number(v.total) || 0
+                }));
+                pagos = (data.pagos || []).map(p => ({
+                    ...p,
+                    monto: Number(p.monto) || 0,
+                    estado: p.estado || "Pendiente"
+                }));
+                guardarCacheLocal();
+                syncEl.textContent = "✅ Conectado a Google Sheets (kiosco_raul)";
+            }
+        } catch (err) {
+            syncEl.textContent = "⚠️ Usando datos guardados en este dispositivo";
+        }
+        actualizarTodo();
+    }
 
     function cambiarSeccion(id, boton) {
         document.querySelectorAll(".seccion")
             .forEach(seccion => seccion.classList.remove("activa"));
-
         document.getElementById(id).classList.add("activa");
 
         document.querySelectorAll("nav button")
             .forEach(btn => btn.classList.remove("activo"));
-
         boton.classList.add("activo");
 
         window.scrollTo(0, 0);
     }
 
+    // =========================
+    // CAJA (APERTURA Y CIERRE)
+    // =========================
+
+    function getCajaAbierta() {
+        return cajas.find(c => c.estado === "Abierta") || null;
+    }
+
+    function totalVentasDeCaja(cajaId) {
+        return ventas
+            .filter(v => String(v.cajaId) === String(cajaId))
+            .reduce((acc, v) => acc + Number(v.total || 0), 0);
+    }
+
+    async function abrirCaja() {
+        if (getCajaAbierta()) {
+            alert("Ya hay una caja abierta.");
+            return;
+        }
+        const montoInput = document.getElementById("montoInicialCaja");
+        const montoInicial = Number(montoInput ? montoInput.value : 0) || 0;
+
+        const nuevaCaja = {
+            id: Date.now(),
+            fechaApertura: new Date().toLocaleString("es-AR"),
+            montoInicial,
+            estado: "Abierta",
+            totalVendido: 0,
+            fechaCierre: ""
+        };
+
+        cajas.push(nuevaCaja);
+        await enviarASheets({ action: "abrirCaja", caja: nuevaCaja });
+        actualizarTodo();
+    }
+
+    async function cerrarCaja() {
+        const cajaAbierta = getCajaAbierta();
+        if (!cajaAbierta) return;
+
+        const vendido = totalVentasDeCaja(cajaAbierta.id);
+        const totalEnCaja = cajaAbierta.montoInicial + vendido;
+
+        const ok = confirm(
+            `¿Cerrar la caja actual?\n` +
+            `Monto inicial: ${formatoDinero(cajaAbierta.montoInicial)}\n` +
+            `Vendido: ${formatoDinero(vendido)}\n` +
+            `Total estimado en caja: ${formatoDinero(totalEnCaja)}`
+        );
+        if (!ok) return;
+
+        cajaAbierta.estado = "Cerrada";
+        cajaAbierta.totalVendido = vendido;
+        cajaAbierta.fechaCierre = new Date().toLocaleString("es-AR");
+
+        await enviarASheets({
+            action: "cerrarCaja",
+            cajaId: cajaAbierta.id,
+            totalVendido: vendido,
+            fechaCierre: cajaAbierta.fechaCierre
+        });
+        actualizarTodo();
+    }
 
     // =========================
     // VENTAS
@@ -442,7 +643,6 @@
     precio.addEventListener("input", calcularTotal);
     cantidad.addEventListener("input", calcularTotal);
 
-
     function calcularTotal() {
         const total =
             (Number(precio.value) || 0) *
@@ -452,58 +652,81 @@
             total.toLocaleString("es-AR");
     }
 
+    async function guardarVenta() {
+        const cajaAbierta = getCajaAbierta();
+        if (!cajaAbierta) {
+            alert("Primero tenés que abrir una caja en la pestaña Inicio.");
+            return;
+        }
 
-    function guardarVenta() {
         const nombre = producto.value.trim();
         const precioValor = Number(precio.value);
         const cantidadValor = Number(cantidad.value);
 
-        if (!nombre || precioValor <= 0 || cantidadValor <= 0) {
-            alert("Completá correctamente los datos de la venta.");
+        if (!nombre || nombre.length > 40) {
+            alert("Ingresá un nombre de producto (máx. 40 caracteres).");
+            return;
+        }
+        if (precioValor <= 0 || String(precioValor).length > 7) {
+            alert("Ingresá un precio válido (máx. 7 dígitos).");
+            return;
+        }
+        if (cantidadValor <= 0 || String(cantidadValor).length > 4) {
+            alert("Ingresá una cantidad válida (máx. 4 dígitos).");
             return;
         }
 
-        ventas.push({
+        const nuevaVenta = {
             id: Date.now(),
+            cajaId: cajaAbierta.id,
             fecha: new Date().toLocaleString("es-AR"),
             fechaISO: fechaLocalISO(),
             producto: nombre,
             precio: precioValor,
             cantidad: cantidadValor,
             total: precioValor * cantidadValor
-        });
+        };
 
-        localStorage.setItem("ventasKiosco", JSON.stringify(ventas));
+        ventas.push(nuevaVenta);
 
         producto.value = "";
         precio.value = "";
         cantidad.value = 1;
-
         calcularTotal();
+
+        await enviarASheets({ action: "guardarVenta", venta: nuevaVenta });
         actualizarTodo();
     }
 
-
-    function eliminarVenta(id) {
+    async function eliminarVenta(id) {
         if (!confirm("¿Eliminar esta venta?")) return;
 
-        ventas = ventas.filter(venta => venta.id !== id);
-
-        localStorage.setItem("ventasKiosco", JSON.stringify(ventas));
+        ventas = ventas.filter(venta => String(venta.id) !== String(id));
+        await enviarASheets({ action: "eliminarVenta", id });
         actualizarTodo();
     }
-
 
     function mostrarVentas() {
         const contenedor = document.getElementById("listaVentas");
+        const cajaAbierta = getCajaAbierta();
 
-        if (ventas.length === 0) {
+        if (!cajaAbierta) {
             contenedor.innerHTML =
-                '<div class="vacio">No hay ventas registradas.</div>';
+                '<div class="vacio">No hay una caja abierta actualmente.</div>';
             return;
         }
 
-        contenedor.innerHTML = [...ventas]
+        const ventasCaja = ventas.filter(
+            v => String(v.cajaId) === String(cajaAbierta.id)
+        );
+
+        if (ventasCaja.length === 0) {
+            contenedor.innerHTML =
+                '<div class="vacio">No hay ventas en la caja actual.</div>';
+            return;
+        }
+
+        contenedor.innerHTML = [...ventasCaja]
             .reverse()
             .map(venta => `
                 <div class="lista-item">
@@ -532,161 +755,197 @@
             `).join("");
     }
 
-
     // =========================
     // PAGOS
     // =========================
 
-    function guardarPago() {
+    function estadoVisualPago(pago) {
+        if (pago.estado === "Pagado") {
+            return { texto: "Pagado", clase: "pagado" };
+        }
+        if (pago.fecha < fechaLocalISO()) {
+            return { texto: "Vencido", clase: "vencido" };
+        }
+        return { texto: "Pendiente", clase: "pendiente" };
+    }
+
+    async function guardarPago() {
         const fecha = document.getElementById("fechaPago").value;
         const proveedor = document.getElementById("proveedor").value.trim();
         const monto = Number(document.getElementById("montoPago").value);
         const nota = document.getElementById("notaPago").value.trim();
 
-        if (!fecha || !proveedor || monto <= 0) {
-            alert("Completá la fecha, el proveedor y el monto.");
+        if (!fecha || !proveedor || monto <= 0 || String(monto).length > 8) {
+            alert("Completá la fecha, el proveedor y un monto válido (máx. 8 dígitos).");
             return;
         }
 
-        pagos.push({
+        const nuevoPago = {
             id: Date.now(),
             fecha,
             proveedor,
             monto,
             nota,
             estado: "Pendiente"
-        });
+        };
 
-        localStorage.setItem("pagosKiosco", JSON.stringify(pagos));
+        pagos.push(nuevoPago);
 
         document.getElementById("proveedor").value = "";
         document.getElementById("montoPago").value = "";
         document.getElementById("notaPago").value = "";
 
+        await enviarASheets({ action: "guardarPago", pago: nuevoPago });
         actualizarTodo();
     }
 
+    async function marcarPagado(id) {
+        const pago = pagos.find(p => String(p.id) === String(id));
+        if (!pago) return;
 
-    function marcarPagado(id) {
-        const pago = pagos.find(pago => pago.id === id);
+        pago.estado = pago.estado === "Pendiente" ? "Pagado" : "Pendiente";
 
-        if (pago) {
-            pago.estado =
-                pago.estado === "Pendiente" ? "Pagado" : "Pendiente";
-        }
-
-        localStorage.setItem("pagosKiosco", JSON.stringify(pagos));
+        await enviarASheets({
+            action: "togglePago",
+            id: pago.id,
+            estado: pago.estado
+        });
         actualizarTodo();
     }
 
-
-    function eliminarPago(id) {
+    async function eliminarPago(id) {
         if (!confirm("¿Eliminar este pago?")) return;
 
-        pagos = pagos.filter(pago => pago.id !== id);
-
-        localStorage.setItem("pagosKiosco", JSON.stringify(pagos));
+        pagos = pagos.filter(pago => String(pago.id) !== String(id));
+        await enviarASheets({ action: "eliminarPago", id });
         actualizarTodo();
     }
 
+    function setFiltroPago(filtro, btn) {
+        filtroPagoActual = filtro;
+        document.querySelectorAll(".filtros button")
+            .forEach(b => b.classList.remove("activo-filtro"));
+        btn.classList.add("activo-filtro");
+        mostrarPagos();
+    }
 
     function mostrarPagos() {
         const contenedor = document.getElementById("listaPagos");
 
-        const ordenados = [...pagos].sort(
+        let listaFiltrada = [...pagos];
+        if (filtroPagoActual === "pendientes") {
+            listaFiltrada = listaFiltrada.filter(p => p.estado !== "Pagado");
+        } else if (filtroPagoActual === "pagados") {
+            listaFiltrada = listaFiltrada.filter(p => p.estado === "Pagado");
+        }
+
+        const ordenados = listaFiltrada.sort(
             (a, b) => new Date(a.fecha) - new Date(b.fecha)
         );
 
         if (ordenados.length === 0) {
             contenedor.innerHTML =
-                '<div class="vacio">No hay pagos registrados.</div>';
+                '<div class="vacio">No hay pagos para mostrar en este filtro.</div>';
             return;
         }
 
-        contenedor.innerHTML = ordenados.map(pago => `
-            <div class="lista-item">
-                <div class="lista-item-superior">
-                    <div>
-                        <h3>${pago.proveedor}</h3>
+        contenedor.innerHTML = ordenados.map(pago => {
+            const badge = estadoVisualPago(pago);
+            return `
+                <div class="lista-item">
+                    <div class="lista-item-superior">
+                        <div>
+                            <h3>${pago.proveedor}</h3>
+                            <p>📅 ${formatearFecha(pago.fecha)}</p>
+                            ${pago.nota ? `<p>${pago.nota}</p>` : ""}
+                            <span class="estado ${badge.clase}">
+                                ${badge.texto}
+                            </span>
+                        </div>
 
-                        <p>
-                            📅 ${formatearFecha(pago.fecha)}
-                        </p>
-
-                        ${pago.nota
-                            ? `<p>${pago.nota}</p>`
-                            : ""
-                        }
-
-                        <span class="estado ${pago.estado.toLowerCase()}">
-                            ${pago.estado}
-                        </span>
+                        <div class="monto">
+                            ${formatoDinero(pago.monto)}
+                        </div>
                     </div>
 
-                    <div class="monto">
-                        ${formatoDinero(pago.monto)}
+                    <div class="acciones">
+                        <button class="boton-pagado"
+                                onclick="marcarPagado(${pago.id})">
+                            ${pago.estado === "Pendiente"
+                                ? "✓ Marcar pagado"
+                                : "↩ Volver a pendiente"
+                            }
+                        </button>
+
+                        <button class="boton-eliminar"
+                                onclick="eliminarPago(${pago.id})">
+                            🗑️
+                        </button>
                     </div>
                 </div>
-
-                <div class="acciones">
-                    <button class="boton-pagado"
-                            onclick="marcarPagado(${pago.id})">
-                        ${pago.estado === "Pendiente"
-                            ? "✓ Marcar pagado"
-                            : "↩ Volver a pendiente"
-                        }
-                    </button>
-
-                    <button class="boton-eliminar"
-                            onclick="eliminarPago(${pago.id})">
-                        🗑️
-                    </button>
-                </div>
-            </div>
-        `).join("");
+            `;
+        }).join("");
     }
-
 
     // =========================
     // INICIO
     // =========================
 
     function mostrarInicio() {
-        const hoy = fechaLocalISO();
+        const cajaAbierta = getCajaAbierta();
+        const panelCaja = document.getElementById("panelCaja");
 
-        const vendidoHoy = ventas
-            .filter(venta => venta.fechaISO === hoy)
-            .reduce((suma, venta) => suma + venta.total, 0);
+        if (cajaAbierta) {
+            const vendidoActual = totalVentasDeCaja(cajaAbierta.id);
+            panelCaja.innerHTML = `
+                <div class="alerta-caja">
+                    <strong>🟢 Caja abierta</strong><br>
+                    Apertura: ${cajaAbierta.fechaApertura}<br>
+                    Cambio inicial: <strong>${formatoDinero(cajaAbierta.montoInicial)}</strong>
+                    <button class="boton-secundario" onclick="cerrarCaja()">
+                        🔒 Cerrar caja actual
+                    </button>
+                </div>
+            `;
+            document.getElementById("vendidoCajaActual").textContent =
+                formatoDinero(vendidoActual);
+            document.getElementById("cantidadVentasCaja").textContent =
+                ventas.filter(v => String(v.cajaId) === String(cajaAbierta.id)).length;
+        } else {
+            panelCaja.innerHTML = `
+                <div class="alerta-caja">
+                    <strong>🔴 Caja cerrada</strong><br>
+                    Abrí una caja para registrar las ventas de este turno por separado.
+                    <label>Monto inicial en caja ($)</label>
+                    <input id="montoInicialCaja" type="number" min="0" value="0"
+                           oninput="limitarDigitos(this, 8)">
+                    <button class="boton-principal" onclick="abrirCaja()">
+                        🔓 Abrir caja
+                    </button>
+                </div>
+            `;
+            document.getElementById("vendidoCajaActual").textContent = "$0";
+            document.getElementById("cantidadVentasCaja").textContent = "0";
+        }
 
-        const pendientes = pagos.filter(
-            pago => pago.estado === "Pendiente"
-        );
-
+        const pendientes = pagos.filter(pago => pago.estado !== "Pagado");
         const totalPendiente = pendientes.reduce(
-            (suma, pago) => suma + pago.monto, 0
+            (suma, pago) => suma + Number(pago.monto || 0), 0
         );
-
-        document.getElementById("vendidoHoy").textContent =
-            formatoDinero(vendidoHoy);
-
-        document.getElementById("cantidadVentasInicio").textContent =
-            ventas.length;
 
         document.getElementById("totalPendiente").textContent =
             formatoDinero(totalPendiente);
-
 
         const proximos = [...pendientes]
             .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
         const aviso = document.getElementById("avisoProximoPago");
-
         if (proximos.length > 0) {
             const proximo = proximos[0];
-
+            const badge = estadoVisualPago(proximo);
             aviso.innerHTML = `
                 <div class="alerta">
-                    <strong>Próximo pago</strong><br><br>
+                    <strong>Próximo pago (${badge.texto})</strong><br><br>
                     ${proximo.proveedor}<br>
                     ${formatearFecha(proximo.fecha)} —
                     <strong>${formatoDinero(proximo.monto)}</strong>
@@ -696,85 +955,121 @@
             aviso.innerHTML = "";
         }
 
-
-        const contenedor =
-            document.getElementById("proximosPagosInicio");
-
+        const contenedor = document.getElementById("proximosPagosInicio");
         if (proximos.length === 0) {
             contenedor.innerHTML =
                 '<div class="vacio">No hay pagos pendientes.</div>';
-            return;
+        } else {
+            contenedor.innerHTML = proximos.slice(0, 3).map(pago => {
+                const badge = estadoVisualPago(pago);
+                return `
+                    <div class="lista-item">
+                        <div class="lista-item-superior">
+                            <div>
+                                <h3>${pago.proveedor}</h3>
+                                <p>📅 ${formatearFecha(pago.fecha)}</p>
+                                <span class="estado ${badge.clase}">${badge.texto}</span>
+                            </div>
+                            <div class="monto">
+                                ${formatoDinero(pago.monto)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join("");
         }
 
-        contenedor.innerHTML = proximos.slice(0, 3).map(pago => `
-            <div class="lista-item">
-                <div class="lista-item-superior">
-                    <div>
-                        <h3>${pago.proveedor}</h3>
-                        <p>📅 ${formatearFecha(pago.fecha)}</p>
-                    </div>
+        const histCajas = document.getElementById("historialCajas");
+        const cerradas = [...cajas]
+            .filter(c => c.estado === "Cerrada")
+            .reverse()
+            .slice(0, 5);
 
-                    <div class="monto">
-                        ${formatoDinero(pago.monto)}
+        if (cerradas.length === 0) {
+            histCajas.innerHTML =
+                '<div class="vacio">Todavía no hay cajas cerradas.</div>';
+        } else {
+            histCajas.innerHTML = cerradas.map(c => `
+                <div class="lista-item">
+                    <div class="lista-item-superior">
+                        <div>
+                            <h3>Caja #${c.id}</h3>
+                            <p>Abierta: ${c.fechaApertura}</p>
+                            <p>Cerrada: ${c.fechaCierre}</p>
+                        </div>
+                        <div class="monto">
+                            ${formatoDinero(c.totalVendido)}
+                        </div>
                     </div>
                 </div>
-            </div>
-        `).join("");
+            `).join("");
+        }
     }
-
 
     function formatearFecha(fecha) {
+        if (!fecha || !fecha.includes("-")) return fecha || "";
         const [año, mes, dia] = fecha.split("-");
-
-        return new Date(año, mes - 1, dia)
-            .toLocaleDateString("es-AR");
+        return new Date(año, mes - 1, dia).toLocaleDateString("es-AR");
     }
 
-
     // =========================
-    // DESCARGAR
+    // DESCARGAR .XLSX REAL
     // =========================
 
-    function descargarVentas() {
-        if (ventas.length === 0) {
-            alert("No hay ventas para descargar.");
+    function descargarExcel() {
+        if (ventas.length === 0 && pagos.length === 0 && cajas.length === 0) {
+            alert("No hay datos para descargar.");
             return;
         }
 
-        let csv =
-            "\uFEFFFecha;Producto;Precio;Cantidad;Total\n";
+        const wb = XLSX.utils.book_new();
 
-        ventas.forEach(venta => {
-            csv +=
-                `"${venta.fecha}";` +
-                `"${venta.producto}";` +
-                `${venta.precio};` +
-                `${venta.cantidad};` +
-                `${venta.total}\n`;
-        });
-
-        const blob = new Blob(
-            [csv],
-            { type: "text/csv;charset=utf-8;" }
+        const wsVentas = XLSX.utils.json_to_sheet(
+            ventas.map(v => ({
+                CajaID: v.cajaId,
+                Fecha: v.fecha,
+                Producto: v.producto,
+                Precio: v.precio,
+                Cantidad: v.cantidad,
+                Total: v.total
+            }))
         );
+        XLSX.utils.book_append_sheet(wb, wsVentas, "Ventas");
 
-        const enlace = document.createElement("a");
-        enlace.href = URL.createObjectURL(blob);
-        enlace.download = "ventas_kiosco.csv";
-        enlace.click();
+        const wsPagos = XLSX.utils.json_to_sheet(
+            pagos.map(p => ({
+                Fecha: formatearFecha(p.fecha),
+                Proveedor: p.proveedor,
+                Monto: p.monto,
+                Nota: p.nota || "",
+                Estado: estadoVisualPago(p).texto
+            }))
+        );
+        XLSX.utils.book_append_sheet(wb, wsPagos, "Pagos");
 
-        URL.revokeObjectURL(enlace.href);
+        const wsCajas = XLSX.utils.json_to_sheet(
+            cajas.map(c => ({
+                CajaID: c.id,
+                Apertura: c.fechaApertura,
+                Cierre: c.fechaCierre || "",
+                MontoInicial: c.montoInicial,
+                TotalVendido: c.estado === "Abierta" ? totalVentasDeCaja(c.id) : c.totalVendido,
+                Estado: c.estado
+            }))
+        );
+        XLSX.utils.book_append_sheet(wb, wsCajas, "Cajas");
+
+        XLSX.writeFile(wb, `kiosco_raul_${fechaLocalISO()}.xlsx`);
     }
-
 
     function actualizarTodo() {
+        mostrarInicio();
         mostrarVentas();
         mostrarPagos();
-        mostrarInicio();
     }
 
-
     actualizarTodo();
+    cargarDesdeSheets();
 </script>
 
 </body>
